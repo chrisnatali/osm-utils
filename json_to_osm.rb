@@ -6,7 +6,6 @@
 # - Make XML cleaner by looking at OSM examples
 # - Prettify xml output
 # - Test posting to OSM
-#
 
 
 class ToOSM
@@ -89,7 +88,6 @@ class ToOSM
 end
 
 require 'json'
-require 'optparse'
 
 # read in options from config file if it exists
 # let it fail if no config file
