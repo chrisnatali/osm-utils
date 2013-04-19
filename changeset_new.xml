@@ -1,0 +1,6 @@
+<osm>
+    <changeset>
+        <tag k="created_by" v="sync"/>
+        <tag k="comment" v="formhub data sync"/>
+    </changeset>
+</osm>
