@@ -99,10 +99,19 @@ formhub_json = JSON.parse($stdin.read)
 
 # convert the json into list of hashes suitable for import into OSM
 # via ToOSM
+
 json_records = formhub_json.map do |json_hash| 
-    { "lat" => json_hash['_geolocation'][0], 
-      "lon" => json_hash['_geolocation'][1],
-      "node_type" => json_hash['node_type'] }
+    h_rec = { 
+               "lat" => json_hash['_geolocation'][0], 
+               "lon" => json_hash['_geolocation'][1]
+            }
+            
+    # simply get all 
+    json_hash.keys.each do |key|
+       h_rec[key] = json_hash[key] if not key.match(/^_/)
+    end 
+
+    h_rec
 end
 
 to_osm = ToOSM.new(ToOSMConfig::CHANGESET_ID, ToOSMConfig::OSM_FILE_TYPE)
