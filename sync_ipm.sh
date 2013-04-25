@@ -6,6 +6,9 @@
 # TODO:
 # - Handle errors
 
+# Take backup of existing in case anything goes wrong
+cp load_$OSM_ENV/existing.json load_$OSM_ENV/existing_bak.json
+
 # - Get the latest data capture json from formhub
 curl -u $FH_USER:$FH_PWD https://formhub.org/$FH_USER/forms/$FH_FORM/api > load_$OSM_ENV/latest.json 
 
@@ -31,8 +34,12 @@ http_code=`curl -s -o diff_response -w "%{http_code}" -u $OSM_USER:$OSM_PWD -d @
 if [[ $http_code != 200 ]]; then
     echo "FAILED to upload data"
 else
-    # SUCCESS, so set existing dataset to latest...since that's now in sync
-    mv load_$OSM_ENV/latest.json load_$OSM_ENV/existing.json
+    # SUCCESS, so merge latest with existing dataset
+    # ** canNOT just overwrite with latest since we may be pulling
+    # ** from multiple forms
+    ruby -e "require 'json'; existing = JSON.parse(File.read(\"load_$OSM_ENV/existing.json\")); new = JSON.parse(File.read(\"load_$OSM_ENV/new.json\")); merged = existing + new;  puts merged.to_json;" > load_$OSM_ENV/merged.json
+    # Is this necessary?  Or can we write to existing.json in cmd above
+    mv load_$OSM_ENV/merged.json load_$OSM_ENV/existing.json
 fi
 
 # close the changeset

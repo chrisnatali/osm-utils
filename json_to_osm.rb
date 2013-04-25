@@ -61,8 +61,9 @@ class ToOSM
 
     def _keys_to_tags(record)
         tag_string = ""
-        (record.keys - ["lat", "lon"]).each do |tag| 
-            tag_string << "<tag k='#{tag}' v='#{record[tag]}' />\n"
+        (record.keys - ["lat", "lon", "simserial", "deviceid", "formhub/uuid", "meta/instanceID", "start", "node_location", "subscriberid", "today"]).each do |tag| 
+            osm_tag = tag.gsub("/", ":")
+            tag_string << "<tag k='#{osm_tag}' v='#{record[tag]}' />\n"
         end
         tag_string
     end
@@ -110,6 +111,10 @@ json_records = formhub_json.map do |json_hash|
     json_hash.keys.each do |key|
        h_rec[key] = json_hash[key] if not key.match(/^_/)
     end 
+
+    # add formhub as source and its id
+    h_rec["source"] = "http://formhub.org"
+    h_rec["source:id"] = json_hash["_id"]
 
     h_rec
 end
