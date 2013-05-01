@@ -27,7 +27,7 @@ CHANGESET_ID=`cat changeset_id`
 sed "s/%change_id%/$CHANGESET_ID/" to_osm_cfg_tmpl.rb > to_osm_cfg.rb
 
 # create the upload osm changeset file from new.json
-cat load_$OSM_ENV/new.json | ruby json_to_osm.rb > osm_upload.osc
+cat load_$OSM_ENV/new.json | ruby json_to_osm.rb > load_$OSM_ENV/osm_upload.osc
 
 # upload the changeset
 http_code=`curl -s -o diff_response -w "%{http_code}" -u $OSM_USER:$OSM_PWD -d @osm_upload.osc $OSM_SERVER/api/0.6/changeset/$CHANGESET_ID/upload`
