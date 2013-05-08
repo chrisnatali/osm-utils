@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 # Ruby script to translate json file from FormHub into
 # a corresponding osm file for upload to osm
 # NOTE:
@@ -5,17 +6,14 @@
 # TODO:
 # - Make XML cleaner by looking at OSM examples
 # - Prettify xml output
-# - Test posting to OSM
+
+require 'rexml/document'
 
 
 class ToOSM
     
-    XML_INIT = "<?xml version='1.0' encoding='UTF-8'?>\n"
-    OSM_ROOT = "<osm version='0.6' upload='true' generator='ToOSM'>\n"
-    OSM_CHANGE_ROOT = "<osmChange version='0.6' upload='true' generator='ToOSM'>\n"
-    OSM_END = "</osm>\n"
-    OSM_CHANGE_END = "</osmChange>\n"
-    OSM_NODE_END = "</node>\n"
+    attr_reader :osm_xml
+
     OSM_DATA_VERSION = 1
     OSM_DEFAULT_CHANGESET = 1
     OSM_FILE_TYPE_OSM = "osm"
@@ -25,6 +23,16 @@ class ToOSM
         @sequence = -1
         @changeset_id = changeset_id
         @output_type = output_type
+        @osm_xml = REXML::Document.new
+        @osm_xml_root = nil
+        if @output_type == OSM_FILE_TYPE_CHANGE
+            @osm_xml_root = @osm_xml.add_element("osmChange")
+        else 
+            @osm_xml_root = @osm_xml.add_element("osm")
+        end
+        @osm_xml_root.attributes["version"] = "0.6"
+        @osm_xml_root.attributes["upload"] = "true"
+        @osm_xml_root.attributes["generator"] = "ToOSM"
     end
 
     #TODO:  Figure out how to auto-comment similar to auto-indent
@@ -55,17 +63,24 @@ class ToOSM
         seq
     end
 
-    def _node_xml(id, lat, lon)
-      "<node id='#{id}' visible='true' version='#{OSM_DATA_VERSION}' changeset='#{@changeset_id}' lat='#{lat}' lon='#{lon}'>\n"
+    def _node_xml(parent_node, id, lat, lon)
+      node = parent_node.add_element("node")
+      node.attributes["id"] = id
+      node.attributes["visible"] = "true"
+      node.attributes["version"] = OSM_DATA_VERSION
+      node.attributes["changeset"] = @changeset_id
+      node.attributes["lat"] = lat
+      node.attributes["lon"] = lon
+      node
     end
 
-    def _keys_to_tags(record)
-        tag_string = ""
+    def _add_tags_from_keys(node, record)
         (record.keys - ["lat", "lon", "simserial", "deviceid", "formhub/uuid", "meta/instanceID", "start", "node_location", "subscriberid", "today"]).each do |tag| 
             osm_tag = tag.gsub("/", ":")
-            tag_string << "<tag k='#{osm_tag}' v='#{record[tag]}' />\n"
+            tag_xml = node.add_element("tag")
+            tag_xml.attributes["k"] = osm_tag
+            tag_xml.attributes["v"] = record[tag]
         end
-        tag_string
     end
 
     # assumes record is a hash with "lat", "lon" keys, plus whatever keys we
@@ -73,27 +88,27 @@ class ToOSM
     # so translation to osm tags should be done prior to this. 
     # ("lat", "lon" will be excluded from these)
     def record_to_osm_node(record)
-        xml = ""
+        parent_node = @osm_xml_root
         if @output_type == OSM_FILE_TYPE_CHANGE
-            xml << "<create>\n"
-        end 
-        xml << _node_xml(get_sequence(), record["lat"], record["lon"])
-        xml << _keys_to_tags(record)
-        xml << OSM_NODE_END
-        if @output_type == OSM_FILE_TYPE_CHANGE
-            xml << "</create>\n"
-        end 
-        xml
+            parent_node = @osm_xml_root.add_element("create")
+        end
+        node = _node_xml(parent_node, get_sequence(), record["lat"], record["lon"])
+        _add_tags_from_keys(node, record)
     end
 
 end
 
 require 'json'
 
-# read in options from config file if it exists
-# let it fail if no config file
-require './to_osm_cfg.rb'
+HELP_TEXT = "Usage:  json_to_osm.rb changeset_id osm_file_type"
 
+if ARGV.size != 2
+    $stderr.puts HELP_TEXT
+    exit 1
+end
+
+changeset_id = ARGV[0]
+osm_file_type = ARGV[1]
 
 # Read formhub json from stdin for now
 formhub_json = JSON.parse($stdin.read)
@@ -119,22 +134,11 @@ json_records = formhub_json.map do |json_hash|
     h_rec
 end
 
-to_osm = ToOSM.new(ToOSMConfig::CHANGESET_ID, ToOSMConfig::OSM_FILE_TYPE)
+to_osm = ToOSM.new(changeset_id, osm_file_type)
 
-# puts header
-# csv.each {|csv_record| puts csv_to_osm.field_lookup("Name", csv_record) }
-# Write out the xml
-puts ToOSM::XML_INIT
-if ToOSMConfig::OSM_FILE_TYPE == ToOSM::OSM_FILE_TYPE_CHANGE
-    puts ToOSM::OSM_CHANGE_ROOT
-else
-    puts ToOSM::OSM_ROOT
-end
  
-json_records.each {|json_record| puts to_osm.record_to_osm_node(json_record) }
+json_records.each {|json_record| to_osm.record_to_osm_node(json_record) }
 
-if ToOSMConfig::OSM_FILE_TYPE == ToOSM::OSM_FILE_TYPE_CHANGE
-    puts ToOSM::OSM_CHANGE_END
-else
-    puts ToOSM::OSM_END
-end
+formatter = REXML::Formatters::Pretty.new
+formatter.compact = true
+formatter.write(to_osm.osm_xml, $stdout)
