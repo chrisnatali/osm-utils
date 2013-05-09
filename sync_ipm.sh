@@ -34,7 +34,7 @@ if ! cat load_$OSM_ENV/new.json | ./json_to_osm.rb $CHANGESET_ID change > load_$
 fi
 
 # upload the changeset
-http_code=`curl -s -o diff_response -w "%{http_code}" -u $OSM_USER:$OSM_PWD -d @osm_upload.osc $OSM_SERVER/api/0.6/changeset/$CHANGESET_ID/upload`
+http_code=`curl -s -o diff_response -w "%{http_code}" -u $OSM_USER:$OSM_PWD -d @load_$OSM_ENV/osm_upload.osc $OSM_SERVER/api/0.6/changeset/$CHANGESET_ID/upload`
 if [[ $http_code != 200 ]]; then
     echo "FAILED to upload data" >&2
 else
