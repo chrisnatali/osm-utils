@@ -1,6 +1,0 @@
-Utilities for working with OSM data
-
-sync_ipm.sh:  script to do a one-way sync of FormHub data into an OSM instance
-json_to_osm.rb:  script to convert FormHub-based json output into an OSM changset suitable for loading into an OSM instance
-
-
