@@ -47,7 +47,7 @@ class SyncLoad
       system("curl #{changeset_url} > #{id_file}")
     end
     
-    closed_times.max()
+    closed_times.max() || last_sync_timestamp
   end
 
 
@@ -62,7 +62,9 @@ class SyncLoad
                                  --cache-strategy sparse \
                                  --hstore-all --extra-attributes --append"
       
-      system(osm2pgsql_cmd)
+      if system(osm2pgsql_cmd)
+        FileUtils.mv id_file, id_file.sub("osc", "bak")
+      end
     end
 
   end
@@ -82,6 +84,11 @@ optparse = OptionParser.new do |opts|
   opts.on('-u', '--update-postgis', 'update postgis with changesets') do 
     options[:update_postgis] = true
   end
+
+  opts.on('-c', '--config-file CONFIG_FILE', 'set the ruby config file for constants') do |config_file|
+    options[:config_file] = config_file
+  end
+
 
   opts.on('-h', '--help', 'Display this screen') do
     puts opts
@@ -114,6 +121,8 @@ begin
     exit 1
   end
 
+  # make sure sync dir exists
+  FileUtils.mkdir_p(SYNC_LOAD_SYNC_DIR)
   # Prevent multiple simultaneous runs
   lock_file = File.join(SYNC_LOAD_SYNC_DIR, "sync_load.lock") 
   if File.exists?(lock_file)
@@ -130,7 +139,7 @@ begin
 
   if options[:get_changesets]
     last_cs_ts = sync_load.get_changesets(options[:get_changesets])
-    puts "last_changeset_timestamp: #{last_cs_ts.to_s}"
+    puts last_cs_ts.to_s
   end
 
   if options[:update_postgis]
