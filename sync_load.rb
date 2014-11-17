@@ -56,14 +56,17 @@ class SyncLoad
 
     # run osm2pgsql for each changeset file
     Dir[File.join(@changeset_dir, "*.osc")].each do |id_file|
+      puts "appending #{id_file}"
       osm2pgsql_cmd = "osm2pgsql --database #{@postgis_db} \
                                  --style #{@osm_pgsql_style_file} \
                                  --slim #{id_file} \
                                  --cache-strategy sparse \
                                  --hstore-all --extra-attributes --append"
-      
-      if system(osm2pgsql_cmd)
+      system(osm2pgsql_cmd, :err=>STDOUT, :out=>STDOUT)
+      if $?.success?
+        bak_file = id_file.sub("osc", "bak")
         FileUtils.mv id_file, id_file.sub("osc", "bak")
+        puts "moved #{id_file} to #{bak_file}"
       end
     end
 
