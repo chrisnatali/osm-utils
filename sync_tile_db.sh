@@ -18,6 +18,12 @@ mkdir -p $SYNC_DIR
 if [ ! -e $SYNC_DIR/sync_load.ts ]
 then 
   psql -d osm_grid -At -c "select max(osm_timestamp) from planet_osm_point;" > $SYNC_DIR/sync_load.ts
+  # if results from above don't look right (i.e. table missing or no max timestamp)
+  # go back to jan 1 1970 (i.e. get all changesets)
+  if ! grep -Eq '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.*' $SYNC_DIR/sync_load.ts
+  then 
+    echo "1970-01-01T00:00:00+00:00" > $SYNC_DIR/sync_load.ts
+  fi
 fi
 
 last_sync_timestamp=`cat $SYNC_DIR/sync_load.ts`
