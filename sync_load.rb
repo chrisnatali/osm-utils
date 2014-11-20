@@ -133,7 +133,7 @@ begin
   # Prevent multiple simultaneous runs
   lock_file = File.join(SYNC_LOAD_SYNC_DIR, "sync_load.lock") 
   if File.exists?(lock_file)
-    puts "Already running"
+    puts "sync_load.lock exists...assuming already running"
     exit 1
   else
     File.open(lock_file, "w") {}
