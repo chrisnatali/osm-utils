@@ -35,7 +35,11 @@ class SyncLoad
     closed_times = []    
     doc.xpath('//changeset').each do |ch| 
       ids << ch['id'] 
-      closed_times << DateTime::parse(ch['closed_at'])
+      if ch['closed_at']
+        closed_times << DateTime::parse(ch['closed_at'])
+      else # assumes changeset is still open, so use open time
+        closed_times << DateTime::parse(ch['created_at'])
+      end
     end
 
     # now get the changeset files themselves
