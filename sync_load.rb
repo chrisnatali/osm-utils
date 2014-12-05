@@ -35,7 +35,11 @@ class SyncLoad
     closed_times = []    
     doc.xpath('//changeset').each do |ch| 
       ids << ch['id'] 
-      closed_times << DateTime::parse(ch['closed_at'])
+      if ch['closed_at']
+        closed_times << DateTime::parse(ch['closed_at'])
+      else # assumes changeset is still open, so use open time
+        closed_times << DateTime::parse(ch['created_at'])
+      end
     end
 
     # now get the changeset files themselves
@@ -47,7 +51,7 @@ class SyncLoad
       system("curl #{changeset_url} > #{id_file}")
     end
     
-    closed_times.max()
+    closed_times.max() || last_sync_timestamp
   end
 
 
@@ -56,13 +60,18 @@ class SyncLoad
 
     # run osm2pgsql for each changeset file
     Dir[File.join(@changeset_dir, "*.osc")].each do |id_file|
+      puts "appending #{id_file}"
       osm2pgsql_cmd = "osm2pgsql --database #{@postgis_db} \
                                  --style #{@osm_pgsql_style_file} \
                                  --slim #{id_file} \
                                  --cache-strategy sparse \
                                  --hstore-all --extra-attributes --append"
-      
-      system(osm2pgsql_cmd)
+      system(osm2pgsql_cmd, :err=>STDOUT, :out=>STDOUT)
+      if $?.success?
+        bak_file = id_file.sub("osc", "bak")
+        FileUtils.mv id_file, id_file.sub("osc", "bak")
+        puts "moved #{id_file} to #{bak_file}"
+      end
     end
 
   end
@@ -82,6 +91,11 @@ optparse = OptionParser.new do |opts|
   opts.on('-u', '--update-postgis', 'update postgis with changesets') do 
     options[:update_postgis] = true
   end
+
+  opts.on('-c', '--config-file CONFIG_FILE', 'set the ruby config file for constants') do |config_file|
+    options[:config_file] = config_file
+  end
+
 
   opts.on('-h', '--help', 'Display this screen') do
     puts opts
@@ -114,10 +128,12 @@ begin
     exit 1
   end
 
+  # make sure sync dir exists
+  FileUtils.mkdir_p(SYNC_LOAD_SYNC_DIR)
   # Prevent multiple simultaneous runs
   lock_file = File.join(SYNC_LOAD_SYNC_DIR, "sync_load.lock") 
   if File.exists?(lock_file)
-    puts "Already running"
+    puts "sync_load.lock exists...assuming already running"
     exit 1
   else
     File.open(lock_file, "w") {}
@@ -130,7 +146,7 @@ begin
 
   if options[:get_changesets]
     last_cs_ts = sync_load.get_changesets(options[:get_changesets])
-    puts "last_changeset_timestamp: #{last_cs_ts.to_s}"
+    puts last_cs_ts.to_s
   end
 
   if options[:update_postgis]
